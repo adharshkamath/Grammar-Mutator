@@ -1,0 +1,60 @@
+Three options to fix the broken build:
+
+Use an older compiler version
+Disable the -Werror flag in the build system
+Fix the root cause of the problem
+1. Older Compiler
+The build fails with g++-13 but succeeds with g++-11 (I haven't tested at other compilers). Install the older compiler and run the build:
+
+apt install -y g++-11
+mkdir build && cd build
+cmake .. -DANTLR_JAR_LOCATION=/path/to/antlr-4.8-complete.jar -DGRAMMAR_FILE=/path/to/Grammar-Mutator/grammars/ruby.json -DCMAKE_CXX_COMPILER=g++-11
+cmake --build .
+2. Disabling -Werror flag
+Create a file named disable_Werror.patch with the following content:
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c94eba0..32ba7cf 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -49,7 +49,7 @@ endif ()
+
+# Set -Wall -Wextra -Werror
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
+-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+
+# Do not disable assertions based on CMAKE_BUILD_TYPE.
+foreach (_build_type "Release" "MinSizeRel" "RelWithDebInfo")
+Apply the patch:
+git apply disable_Werror.patch
+Build the project:
+mkdir build && cd build
+cmake .. -DANTLR_JAR_LOCATION=/path/to/antlr-4.8-complete.jar -DGRAMMAR_FILE=/path/to/Grammar-Mutator/grammars/ruby.json
+cmake --build .
+3. Fix the Root Cause
+A Pull Request with the fixes has been created, but it is unlikely to be accepted: PR with fixes. Therefore, here are the instructions to apply the fixes manually:
+
+Start build the project:
+
+mkdir build && cd build
+cmake .. -DANTLR_JAR_LOCATION=/path/to/antlr-4.8-complete.jar -DGRAMMAR_FILE=/path/to/Grammar-Mutator/grammars/ruby.json
+cmake --build .
+* After some time, the build error will appear *
+
+Make changes to build/third_party/antlr4-cpp-runtime/antlr4-cpp-runtime-src/runtime/src/RuleContext.h:
+
+diff --git a/runtime/src/RuleContext.h b/runtime/src/RuleContext.h
+index 9ee0d2d..9de977a 100755
+--- a/runtime/src/RuleContext.h
++++ b/runtime/src/RuleContext.h
+@@ -128,6 +128,7 @@ namespace antlr4 {
+
+    virtual std::string toString(const std::vector<std::string> &ruleNames, RuleContext *stop);
+
++    using ParseTree::operator==;
+    bool operator == (const RuleContext &other) { return this == &other; } // Simple address comparison.
+
+private:
+Continue the build with the changes applied:
+
+cmake --build .
